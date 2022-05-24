@@ -1,3 +1,5 @@
+import time
+
 import requests
 import json
 import datetime
@@ -56,7 +58,15 @@ class covalant:
     def transaction_check(self, chain_id, address, token_id):
         endpoint = f'/{chain_id}/tokens/{address}/nft_transactions/{token_id}/?key={self.API_KEY}'
         url = self.base_url + endpoint
-        result = requests.get(url).json()
+        while True:
+            try:
+                result = requests.get(url).json()
+                break
+            except requests.RequestException as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+
         data = result["data"]
         items = data["items"]
         nft_transactions = items[0]["nft_transactions"]
@@ -94,20 +104,17 @@ def notlisted_token_find(start_token_id, end_token_id, reset = False):
     api = covalant()
 
     for i in range(start_token_id, end_token_id):
-        try:
-            print("searching token number ", i)
-            if i == 390:
-                continue
-            _notListed, token_id, block_signed_at, to_address, log_events_length, total_transaction, num = api.transaction_check(api.chain_id, api.address, i)
-            with open('./notListed log.csv', 'a') as f:
-                f.write(f'{_notListed}, {token_id}, {block_signed_at}, {to_address}, {log_events_length}, {total_transaction}, {num}\n')
-            if  _notListed == "condition A" or _notListed == "condition B":
-                original_owner, owner = api.get_owner(token_id)
-                with open('./notListed tokenID.txt', 'a') as f:
-                    f.write(f'{_notListed}, {token_id}, {original_owner}, {owner}\n')
-            print(i, " done")
-        except Exception as e:
-            print(e)
+        print("searching token number ", i)
+        if i == 390:
+            continue
+        _notListed, token_id, block_signed_at, to_address, log_events_length, total_transaction, num = api.transaction_check(api.chain_id, api.address, i)
+        with open('./notListed log.csv', 'a') as f:
+            f.write(f'{_notListed}, {token_id}, {block_signed_at}, {to_address}, {log_events_length}, {total_transaction}, {num}\n')
+        if  _notListed == "condition A" or _notListed == "condition B":
+            original_owner, owner = api.get_owner(token_id)
+            with open('./notListed tokenID.txt', 'a') as f:
+                f.write(f'{_notListed}, {token_id}, {original_owner}, {owner}\n')
+        print(i, " done")
 
     ended_time = datetime.datetime.now()
     cost_time = ended_time - started_time
@@ -120,4 +127,4 @@ def tier_calculate():
         tokenId = f.readline()
         api = covalant()
 
-notlisted_token_find(424, 7778)
+notlisted_token_find(756, 7778)
