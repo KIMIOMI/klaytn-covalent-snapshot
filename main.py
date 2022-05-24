@@ -26,7 +26,15 @@ class covalant:
     def is_original_owner(self, chain_id, address, token_id):
         endpoint =f'/{chain_id}/tokens/{address}/nft_metadata/{token_id}/?key={self.API_KEY}'
         url = self.base_url + endpoint
-        result = requests.get(url).json()
+        while True:
+            try:
+                result = requests.get(url).json()
+                break
+            except requests.RequestException as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+
         data = result["data"]
         items = data["items"]
         nft_data = items[0]["nft_data"]
