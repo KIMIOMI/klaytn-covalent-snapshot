@@ -39,6 +39,7 @@ class covalant:
         for item in items:
             if item["contract_address"] == self.address:
                 balance = item["balance"]
+
                 return balance
         return False
 
@@ -290,6 +291,4 @@ def tier_calculate():
 
 # api.take_holder()
 
-snapshot = Snapshot()
-snapshot.transaction_check()
 # notlisted_token_find(1207, 1208)
