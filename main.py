@@ -1,5 +1,5 @@
 import time
-
+from pymongo import MongoClient
 import numpy
 import pandas as pd
 import requests
@@ -16,6 +16,11 @@ class covalant:
     address = data["address"]
     opensea_pklay = data["to_opensea_pklay"] # 0xd82dab73fc27c4207f2d87924506a1aca24dc7fc
     opensea_klay = data["to_opensea_klay"] # 0x41cff281b578f4cf45515d6e4efd535e47e76efd
+    cluster = MongoClient(data["mongo"])
+
+    db = cluster["zen-bot"]
+    snapshot = db["snapshot2"]
+    holder = db["holder2"]
 
     def get_wallet_balance(self, address):
         endpoint = f'/{self.chain_id}/address/{address}/balances_v2/?nft=true&no-nft-fetch=true&key={self.API_KEY}'
@@ -136,10 +141,83 @@ class covalant:
 
         return "condition A", token_id, block_signed_at, to_address, log_events_length, total_transactions, num
 
-# Example address request
-# get_wallet_balance(klatyn_chain_id, demo_address)
-# A_condition = []
-#
+    def take_snapshot(self, token_id):
+        endpoint = f'/{self.chain_id}/tokens/{self.address}/nft_transactions/{token_id}/?key={self.API_KEY}'
+        url = self.base_url + endpoint
+        while True:
+            try:
+                result = requests.get(url).json()
+                if result != None:
+                    break
+            except Exception as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+
+        self.snapshot.insert_one(result)
+
+    def take_holder(self):
+        endpoint = f'/{self.chain_id}/tokens/{self.address}/token_holders/?page-size=2018&key={self.API_KEY}'
+        url = self.base_url + endpoint
+        while True:
+            try:
+                result = requests.get(url).json()
+                break
+            except requests.RequestException as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+        data = result["data"]
+        self.holder.insert_one(result)
+
+def transaction_check(reset : bool = False):
+    with open('./data.json') as f:
+        data = json.load(f)
+    API_KEY = data["API_KEY"]
+    base_url = data["base_url"]
+    chain_id = data["chain_id"]
+    address = data["address"]
+    opensea_pklay = data["to_opensea_pklay"]  # 0xd82dab73fc27c4207f2d87924506a1aca24dc7fc
+    opensea_klay = data["to_opensea_klay"]  # 0x41cff281b578f4cf45515d6e4efd535e47e76efd
+    cluster = MongoClient(data["mongo"])
+    db = cluster["zen-bot"]
+    snapshot = db["snapshot2"]
+    holder = db["holder2"]
+    results = snapshot.find()
+    token_id = -1
+
+    if reset == True:
+        with open('./notListed log.csv', 'w') as f:
+            f.write('condition, token id, block signed at, to address, numbers of log events, total transaction, issued transaction')
+        with open('./notListed tokenID.txt', 'w') as f:
+            f.write('condition, token id, original owner, owner')
+
+    for result in results:
+        token_id += 1
+        data = result["data"]
+        items = data["items"]
+        nft_transactions = items[0]["nft_transactions"]
+        total_transactions = len(nft_transactions)
+        num = 0
+        for transaction in nft_transactions:
+            block_signed_at = transaction["block_signed_at"]
+            to_address = transaction["to_address"]
+            log_events_length = len(transaction["log_events"])
+            num += 1
+            if block_signed_at > "2022-03-22" and log_events_length > 2 and (
+                    to_address == opensea_klay or to_address == opensea_pklay):
+                condition = "excluded"
+                with open('./notListed log.csv', 'a') as f:
+                    f.write(f'{condition},{token_id},{block_signed_at},{to_address},{log_events_length},{total_transactions},{num}\n')
+
+            elif block_signed_at <= "2022-03-22" and log_events_length > 2 and (
+                    to_address == opensea_klay or to_address == opensea_pklay):
+                condition = "condition B"
+
+            else:
+                condition = "condition A"
+
+
 
 def notlisted_token_find(start_token_id, end_token_id, reset = False):
     started_time = datetime.datetime.now()
@@ -160,7 +238,7 @@ def notlisted_token_find(start_token_id, end_token_id, reset = False):
         _notListed, token_id, block_signed_at, to_address, log_events_length, total_transaction, num = api.transaction_check(api.chain_id, api.address, i)
         with open('./notListed log.csv', 'a') as f:
             f.write(f'{_notListed},{token_id},{block_signed_at},{to_address},{log_events_length},{total_transaction},{num}\n')
-        if  _notListed == "condition A" or _notListed == "condition B":
+        if _notListed == "condition A" or _notListed == "condition B":
             original_owner, owner = api.get_owner(token_id)
             with open('./notListed tokenID.txt', 'a') as f:
                 f.write(f'{_notListed},{token_id},{original_owner},{owner}\n')
@@ -201,6 +279,17 @@ def tier_calculate():
     new_balance = new_balance.join(new_group)
     new_balance.to_csv('final_balance.csv')
 
-tier_calculate()
+# tier_calculate()
 
+# api = covalant()
+# for i in range(0, 7778):
+#     if i == 390:
+#         continue
+#     api.take_snapshot(i)
+#     print(f'{i}는 끝')
+
+# api.take_holder()
+
+snapshot = Snapshot()
+snapshot.transaction_check()
 # notlisted_token_find(1207, 1208)
