@@ -171,6 +171,39 @@ class covalant:
         data = result["data"]
         self.holder.insert_one(result)
 
+    def holder_change_by_block(self, starting_block, ending_block):
+        endpoint = f'/{self.chain_id}/tokens/{self.address}/token_holders_changes/?starting-block={starting_block}&ending-block={ending_block}&page-size=7777&key={self.API_KEY}'
+        url = self.base_url + endpoint
+        while True:
+            try:
+                result = requests.get(url).json()
+                break
+            except requests.RequestException as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+
+        data = result["data"]
+        items = data["items"]
+
+        return items
+
+    def holder_by_block(self, block_height):
+        endpoint = f'/{self.chain_id}/tokens/{self.address}/token_holders/?block-height={block_height}&page-size=7777&key={self.API_KEY}'
+        url = self.base_url + endpoint
+        while True:
+            try:
+                result = requests.get(url).json()
+                break
+            except requests.RequestException as e:
+                print(e)
+                print('Try again...')
+                time.sleep(2)
+        data = result["data"]
+        items = data["items"]
+        return items
+
+
 def transaction_check(reset : bool = False):
     with open('./data.json') as f:
         data = json.load(f)
@@ -280,6 +313,27 @@ def tier_calculate():
     new_balance = new_balance.join(new_group)
     new_balance.to_csv('final_balance.csv')
 
+def holder_change(starting_block, ending_block):
+    api = covalant()
+    data = api.holder_by_block(starting_block)
+    data2 = api.holder_by_block(ending_block)
+    starting_address = []
+    ending_address = []
+
+    for key in data:
+        starting_address.append(key['address'])
+    for key in data2:
+        ending_address.append(key['address'])
+
+    result = list(set(starting_address) - set(ending_address))
+    print(f'starting holder : {len(starting_address)}, ending_holder : {len(ending_address)}, result : {len(result)}')
+
+a_day = 86400
+now = 94271452
+starting_block = now - a_day*119
+ending_block = now - a_day*115
+print(starting_block)
+holder_change(starting_block, ending_block)
 # tier_calculate()
 
 # api = covalant()
