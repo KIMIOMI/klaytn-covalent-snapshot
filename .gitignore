@@ -2,6 +2,7 @@
 data.json
 log.csv
 notListed.txt
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
